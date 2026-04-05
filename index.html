@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+    <title>AuthenticCam Pro | Digital Asset Verification</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="noise-overlay"></div>
+
+    <div class="app-container">
+
+        <!-- HEADER -->
+        <header>
+            <div class="header-top">
+                <div class="logo-area">
+                    <div class="logo-icon">
+                        <i class="fas fa-aperture"></i>
+                    </div>
+                    <div class="logo-text">
+                        <h1>AuthenticCam</h1>
+                        <span class="version-badge">PRO v2.0</span>
+                    </div>
+                </div>
+                <p class="tagline">Digital Asset Verification System</p>
+            </div>
+        </header>
+
+        <!-- MODE TABS -->
+        <div class="mode-tabs">
+            <button class="tab-btn active" id="tabPhoto" onclick="switchMode('photo')">
+                <i class="fas fa-camera"></i> Foto
+            </button>
+            <button class="tab-btn" id="tabVideo" onclick="switchMode('video')">
+                <i class="fas fa-video"></i> Video
+            </button>
+        </div>
+
+        <!-- VIEWFINDER -->
+        <div class="camera-section" id="cameraSection">
+            <video id="video" autoplay playsinline muted></video>
+            <!-- Live canvas overlay untuk video mode -->
+            <canvas id="liveCanvas"></canvas>
+            <div class="camera-overlay" id="cameraOverlay">
+                <div class="focus-bracket top-left"></div>
+                <div class="focus-bracket top-right"></div>
+                <div class="focus-bracket bottom-left"></div>
+                <div class="focus-bracket bottom-right"></div>
+                <div class="live-watermark-preview" id="liveWatermarkPreview"></div>
+            </div>
+
+            <!-- Status bar di dalam viewfinder -->
+            <div class="cam-statusbar">
+                <span id="camResolution">— × —</span>
+                <span class="rec-dot" id="recIndicator" style="display:none"><i class="fas fa-circle"></i> REC</span>
+                <span id="recTimer" style="display:none">00:00</span>
+            </div>
+
+            <!-- Camera flip button -->
+            <button class="cam-flip-btn" id="flipBtn" onclick="flipCamera()">
+                <i class="fas fa-camera-rotate"></i>
+            </button>
+        </div>
+        <canvas id="canvas" style="display:none;"></canvas>
+
+        <!-- PANEL UTAMA -->
+        <div class="main-panel">
+
+            <!-- KOLAPSIBLE: IDENTITAS -->
+            <div class="panel-card" id="cardIdentity">
+                <div class="panel-card-header" onclick="toggleCard('cardIdentity')">
+                    <span><i class="fas fa-user-circle"></i> Identitas & Label</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="panel-card-body">
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Nama / Instansi</label>
+                            <input type="text" id="ownerName" placeholder="Nama lengkap kamu">
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Keterangan Aset</label>
+                            <input type="text" id="assetInfo" placeholder="Contoh: Dokumentasi FLS2N 2026">
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Resolusi Kamera</label>
+                            <select id="quality">
+                                <option value="3840">Ultra HD (4K)</option>
+                                <option value="1920" selected>Full HD (1080p)</option>
+                                <option value="1280">HD (720p)</option>
+                                <option value="640">Standard (480p)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KOLAPSIBLE: WATERMARK -->
+            <div class="panel-card" id="cardWatermark">
+                <div class="panel-card-header" onclick="toggleCard('cardWatermark')">
+                    <span><i class="fas fa-stamp"></i> Kustomisasi Watermark</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="panel-card-body">
+                    <div class="input-row two-col">
+                        <div class="input-group">
+                            <label>Posisi</label>
+                            <select id="wmPosition">
+                                <option value="bottom-left" selected>Kiri Bawah</option>
+                                <option value="bottom-right">Kanan Bawah</option>
+                                <option value="top-left">Kiri Atas</option>
+                                <option value="top-right">Kanan Atas</option>
+                                <option value="center">Tengah (Diagonal)</option>
+                            </select>
+                        </div>
+                        <div class="input-group">
+                            <label>Gaya</label>
+                            <select id="wmStyle">
+                                <option value="dark" selected>Panel Gelap</option>
+                                <option value="light">Panel Terang</option>
+                                <option value="transparent">Transparan</option>
+                                <option value="colored">Berwarna</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Opasitas: <span id="opacityValue">80</span>%</label>
+                            <input type="range" id="wmOpacity" min="30" max="100" value="80" class="slider">
+                        </div>
+                    </div>
+                    <div class="input-row">
+                        <div class="input-group">
+                            <label>Logo/Ikon (opsional)</label>
+                            <div class="file-upload-area" onclick="document.getElementById('logoUpload').click()">
+                                <i class="fas fa-image"></i>
+                                <span id="logoFileName">Klik untuk upload logo</span>
+                            </div>
+                            <input type="file" id="logoUpload" accept="image/*" style="display:none" onchange="handleLogoUpload(event)">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KOLAPSIBLE: ENHANCEMENT -->
+            <div class="panel-card" id="cardEnhance">
+                <div class="panel-card-header" onclick="toggleCard('cardEnhance')">
+                    <span><i class="fas fa-wand-magic-sparkles"></i> AI Enhancement</span>
+                    <span class="badge-new">BARU</span>
+                    <i class="fas fa-chevron-down toggle-icon"></i>
+                </div>
+                <div class="panel-card-body">
+                    <p class="enhance-desc">Tingkatkan kualitas foto dari kamera HP yang kurang bagus secara otomatis.</p>
+                    <div class="enhance-presets">
+                        <button class="preset-btn active" onclick="setPreset('none')" id="presetNone">Original</button>
+                        <button class="preset-btn" onclick="setPreset('auto')" id="presetAuto">✨ Auto</button>
+                        <button class="preset-btn" onclick="setPreset('vivid')" id="presetVivid">🎨 Vivid</button>
+                        <button class="preset-btn" onclick="setPreset('night')" id="presetNight">🌙 Night</button>
+                        <button class="preset-btn" onclick="setPreset('portrait')" id="presetPortrait">🧑 Portrait</button>
+                    </div>
+                    <div class="slider-group">
+                        <div class="slider-row">
+                            <label><i class="fas fa-sun"></i> Brightness</label>
+                            <input type="range" id="eBrightness" min="-100" max="100" value="0" class="slider" oninput="updateFilter()">
+                            <span class="slider-val" id="eBrightnessVal">0</span>
+                        </div>
+                        <div class="slider-row">
+                            <label><i class="fas fa-circle-half-stroke"></i> Contrast</label>
+                            <input type="range" id="eContrast" min="-100" max="100" value="0" class="slider" oninput="updateFilter()">
+                            <span class="slider-val" id="eContrastVal">0</span>
+                        </div>
+                        <div class="slider-row">
+                            <label><i class="fas fa-palette"></i> Saturation</label>
+                            <input type="range" id="eSaturation" min="-100" max="100" value="0" class="slider" oninput="updateFilter()">
+                            <span class="slider-val" id="eSaturationVal">0</span>
+                        </div>
+                        <div class="slider-row">
+                            <label><i class="fas fa-crosshairs"></i> Sharpness</label>
+                            <input type="range" id="eSharpness" min="0" max="100" value="0" class="slider" oninput="updateFilter()">
+                            <span class="slider-val" id="eSharpnessVal">0</span>
+                        </div>
+                        <div class="slider-row">
+                            <label><i class="fas fa-temperature-half"></i> Warmth</label>
+                            <input type="range" id="eWarmth" min="-100" max="100" value="0" class="slider" oninput="updateFilter()">
+                            <span class="slider-val" id="eWarmthVal">0</span>
+                        </div>
+                    </div>
+                    <button class="btn-reset-enhance" onclick="resetFilters()">
+                        <i class="fas fa-undo"></i> Reset Enhancement
+                    </button>
+                </div>
+            </div>
+
+        </div><!-- end main-panel -->
+
+        <!-- TOMBOL AKSI -->
+        <div class="action-area">
+            <button id="snapBtn" class="btn-primary" onclick="capturePhoto()">
+                <div class="btn-ring"></div>
+                <i class="fas fa-circle-dot"></i>
+                <span>Ambil & Verifikasi Foto</span>
+            </button>
+            <button id="videoBtn" class="btn-primary btn-video" onclick="toggleRecording()" style="display:none;">
+                <div class="btn-ring"></div>
+                <i class="fas fa-circle" id="videoIcon"></i>
+                <span id="videoLabel">Mulai Rekam Video</span>
+            </button>
+        </div>
+
+        <!-- HASIL FOTO -->
+        <div id="resultArea" style="display:none;">
+            <div class="result-header">
+                <div class="result-badge">
+                    <i class="fas fa-shield-check"></i> Terverifikasi
+                </div>
+                <h3>Hasil Digital Asset</h3>
+            </div>
+
+            <div class="preview-container">
+                <img id="photoPreview" alt="Preview Foto Terverifikasi">
+            </div>
+
+            <div class="asset-meta" id="assetMeta">
+                <!-- diisi via JS -->
+            </div>
+
+            <div class="result-actions">
+                <a id="downloadLink" download="AuthenticCam_Verified.png">
+                    <button class="btn-download">
+                        <i class="fas fa-download"></i> Simpan Foto
+                    </button>
+                </a>
+                <button class="btn-share" onclick="sharePhoto()">
+                    <i class="fas fa-share-nodes"></i> Bagikan
+                </button>
+            </div>
+
+            <button onclick="location.reload()" class="btn-reset-main">
+                <i class="fas fa-redo"></i> Ambil Foto Lagi
+            </button>
+        </div>
+
+        <!-- HASIL VIDEO -->
+        <div id="videoResultArea" style="display:none;">
+            <div class="result-header">
+                <div class="result-badge result-badge-video">
+                    <i class="fas fa-video"></i> Video Terverifikasi
+                </div>
+                <h3>Hasil Rekaman Video</h3>
+            </div>
+            <div class="preview-container">
+                <video id="videoPreview" controls style="width:100%;border-radius:12px;"></video>
+            </div>
+            <div class="result-actions">
+                <a id="videoDownloadLink" download="AuthenticCam_Video.webm">
+                    <button class="btn-download">
+                        <i class="fas fa-download"></i> Simpan Video
+                    </button>
+                </a>
+            </div>
+            <button onclick="location.reload()" class="btn-reset-main">
+                <i class="fas fa-redo"></i> Rekam Lagi
+            </button>
+        </div>
+
+        <footer>
+            <div class="footer-logo">AuthenticCam Pro</div>
+            <p>&copy; 2026 · Digital Asset Verification System</p>
+            <p class="footer-note">Foto & video terverifikasi dengan digital watermark & signature ID unik.</p>
+        </footer>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
