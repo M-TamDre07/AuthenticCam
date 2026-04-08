@@ -1,10 +1,11 @@
 /* ═══════════════════════════════════════════════════════════════
-   AuthenticCam Pro · script.js v9.0
+   AuthenticCam Pro · script.js v9.1 (Refactored)
    Features: Camera · Watermark · QR · SHA-256 · GPS
              Web Worker · Screen Wake Lock · Pinch-to-Zoom
              Self-Timer · Burst Mode · Settings Persistence
              PWA Install · Keyboard Shortcuts · WB Control
              Fullscreen API · Hardware Volume Shutter
+             [NEW] Adaptive Orientation · Capability Checks
 ═══════════════════════════════════════════════════════════════ */
 'use strict';
 
@@ -63,7 +64,7 @@ const liveCtx = liveCvs.getContext('2d');
 const PERSIST = [
     'ownerName','assetInfo','quality','wmPos','wmStyle','wmOp',
     'wmGps','wmSig','qrOn','qrPos','qrSize','exportFmt','qualSlider',
-    'eBri','eCon','eSat','eShr','eWrm','hapticTog','soundTog'
+    'eBri','eCon','eSat','eShr','eWrm','hapticTog','soundTog', 'wmAdaptive'
 ];
 
 function saveSettings() {
@@ -121,11 +122,19 @@ function injectProUI() {
     }
 }
 
+// ─── UI HELPER UNTUK LEVELER ─────────────────────────────────────
+// Hanya untuk keperluan sensor UI UI Gyroscope (jangan gunakan untuk capture)
+function getUIAngle() {
+    if (typeof screen?.orientation?.angle === 'number') return screen.orientation.angle;
+    if (typeof window.orientation === 'number') return window.orientation;
+    return window.innerWidth > window.innerHeight ? 90 : 0;
+}
+
 // ─── GYROSCOPE LEVELER ──────────────────────────────────────────
 window.addEventListener('deviceorientation', e => {
     const lvl = document.getElementById('leveler');
     if (!lvl || lvl.style.display === 'none') return;
-    const orientation = getDeviceAngle();
+    const orientation = getUIAngle();
     let angle = (orientation === 0 || orientation === 180) ? e.gamma
               : (orientation === 90 ? e.beta : -e.beta);
     const visual = Math.max(-45, Math.min(45, angle || 0));
@@ -144,9 +153,10 @@ async function initWakeLock() {
     if (!('wakeLock' in navigator)) return;
     try {
         S.wakeLock = await navigator.wakeLock.request('screen');
-        document.getElementById('wakeChip').style.display = 'flex';
+        const wakeChip = document.getElementById('wakeChip');
+        if (wakeChip) wakeChip.style.display = 'flex';
         S.wakeLock.addEventListener('release', () => {
-            document.getElementById('wakeChip').style.display = 'none';
+            if (wakeChip) wakeChip.style.display = 'none';
             S.wakeLock = null;
         });
     } catch(e) { console.warn('[WakeLock]', e); }
@@ -160,17 +170,21 @@ document.addEventListener('visibilitychange', reacquireWakeLock);
 window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     S.deferredPrompt = e;
-    document.getElementById('pwaBanner').style.display = 'flex';
+    const banner = document.getElementById('pwaBanner');
+    if (banner) banner.style.display = 'flex';
     const btn = document.getElementById('installBtn');
     if (btn) btn.style.display = 'flex';
 });
 window.addEventListener('appinstalled', () => {
-    document.getElementById('pwaBanner').style.display = 'none';
+    const banner = document.getElementById('pwaBanner');
+    if (banner) banner.style.display = 'none';
     S.deferredPrompt = null;
     toast('✅ AuthenticCam terpasang!', 'ok');
 });
-document.getElementById('pwaInstallBtn').addEventListener('click', requestPwaInstall);
-document.getElementById('pwaDismissBtn').addEventListener('click', () => {
+const installBtn = document.getElementById('pwaInstallBtn');
+if (installBtn) installBtn.addEventListener('click', requestPwaInstall);
+const dismissBtn = document.getElementById('pwaDismissBtn');
+if (dismissBtn) dismissBtn.addEventListener('click', () => {
     document.getElementById('pwaBanner').style.display = 'none';
 });
 
@@ -235,19 +249,25 @@ function applyZoom(z) {
     const zv = document.getElementById('zoomVal');
     if (zs) zs.value = S.pro.zoom;
     if (zv) zv.textContent = S.pro.zoom.toFixed(1) + '×';
+    
     const track = S.stream?.getVideoTracks()[0];
     if (track) {
         const caps = track.getCapabilities?.() || {};
         if (caps.zoom) {
             track.applyConstraints({ advanced: [{ zoom: S.pro.zoom }] }).catch(() => {
-                vid.style.transform = `scale(${S.pro.zoom})`;
-                vid.style.transformOrigin = 'center center';
+                applyDigitalZoom();
             });
         } else {
-            vid.style.transform = `scale(${S.pro.zoom})`;
-            vid.style.transformOrigin = 'center center';
+            applyDigitalZoom();
         }
+    } else {
+        applyDigitalZoom();
     }
+}
+
+function applyDigitalZoom() {
+    vid.style.transform = `scale(${S.pro.zoom})`;
+    vid.style.transformOrigin = 'center center';
 }
 
 function showZoomIndicator(z) {
@@ -406,14 +426,20 @@ function checkCaps() {
     }
 }
 
-window.addEventListener('orientationchange', () => setTimeout(initCamera, 500));
+// Minimalisir pemanggilan initCamera di event ubah orientasi, digantikan dengan penyesuaian canvas UI
+window.addEventListener('orientationchange', () => {
+    setTimeout(() => {
+        if (vid.videoWidth && S.mode === 'video') {
+            liveCvs.width = vid.videoWidth;
+            liveCvs.height = vid.videoHeight;
+        }
+    }, 250);
+});
+
 window.addEventListener('resize', () => {
-    if (S.recording) {
-        const ang = ((getDeviceAngle() % 360) + 360) % 360;
-        const vw = vid.videoWidth, vh = vid.videoHeight;
-        const nr = (ang === 0 || ang === 180);
-        liveCvs.width  = nr ? Math.min(vw, vh) : Math.max(vw, vh);
-        liveCvs.height = nr ? Math.max(vw, vh) : Math.min(vw, vh);
+    if (S.recording && vid.videoWidth) {
+        liveCvs.width = vid.videoWidth;
+        liveCvs.height = vid.videoHeight;
     }
 });
 
@@ -423,39 +449,54 @@ function flipCamera() {
     vid.style.transform = '';
     initCamera();
     const btn = document.getElementById('flipBtn');
-    btn.style.transition = 'transform .3s';
-    btn.style.transform = 'rotateY(180deg)';
-    setTimeout(() => { btn.style.transform = ''; }, 340);
+    if(btn) {
+        btn.style.transition = 'transform .3s';
+        btn.style.transform = 'rotateY(180deg)';
+        setTimeout(() => { btn.style.transform = ''; }, 340);
+    }
 }
 
-// Flash/Torch
+// Flash/Torch dengan pengecekan capability
 function toggleFlash() {
+    const track = S.stream?.getVideoTracks()[0]; 
+    if (!track) return;
+    
+    const caps = track.getCapabilities?.() || {};
+    if (!('torch' in caps)) {
+        toast('❌ Fitur flash tidak didukung di perangkat ini', 'err');
+        return;
+    }
+
     S.torchOn = !S.torchOn;
     const btn  = document.getElementById('flashBtn');
     const icon = document.getElementById('flashIcon');
-    btn.classList.toggle('flash-on', S.torchOn);
-    icon.className = S.torchOn ? 'fas fa-bolt' : 'fas fa-bolt-slash';
-    const track = S.stream?.getVideoTracks()[0];
-    if (track) {
-        track.applyConstraints({ advanced: [{ torch: S.torchOn }] }).catch(() => {
-            S.torchOn = false;
-            btn.classList.remove('flash-on');
-            icon.className = 'fas fa-bolt';
-            toast('Flash tidak didukung', 'err');
-        });
-    }
+    if(btn) btn.classList.toggle('flash-on', S.torchOn);
+    if(icon) icon.className = S.torchOn ? 'fas fa-bolt' : 'fas fa-bolt-slash';
+    
+    track.applyConstraints({ advanced: [{ torch: S.torchOn }] }).catch(() => {
+        S.torchOn = false;
+        if(btn) btn.classList.remove('flash-on');
+        if(icon) icon.className = 'fas fa-bolt';
+        toast('Gagal menyalakan flash', 'err');
+    });
 }
 
 // Tap-to-Focus
 document.getElementById('camWrap').addEventListener('click', async e => {
     if (e.target.closest('button,.top-bar,.cam-grid,.quick-bar,.pro-hud,.chips-row,.timer-overlay')) return;
     if (e.touches?.length === 2) return; // ignore pinch-end
+    
     const ring = document.getElementById('focusRing');
-    ring.style.left = e.clientX + 'px';
-    ring.style.top  = e.clientY + 'px';
-    ring.classList.add('on');
-    setTimeout(() => ring.classList.remove('on'), 700);
-    const track = S.stream?.getVideoTracks()[0]; if (!track) return;
+    if(ring) {
+        ring.style.left = e.clientX + 'px';
+        ring.style.top  = e.clientY + 'px';
+        ring.classList.add('on');
+        setTimeout(() => ring.classList.remove('on'), 700);
+    }
+    
+    const track = S.stream?.getVideoTracks()[0]; 
+    if (!track) return;
+    
     try {
         const caps = track.getCapabilities?.() || {};
         if (caps.focusMode?.includes('manual')) {
@@ -473,11 +514,14 @@ document.getElementById('camWrap').addEventListener('click', async e => {
 
 // ─── MODE SWITCH ─────────────────────────────────────────────────
 function switchMode(m) {
+    if (S.mode === m) return;
     S.mode = m;
     ['photo','video','pro'].forEach(x => {
         const el = document.getElementById('m' + x.charAt(0).toUpperCase() + x.slice(1));
-        el.classList.toggle('active', x === m);
-        el.setAttribute('aria-pressed', x === m ? 'true' : 'false');
+        if(el) {
+            el.classList.toggle('active', x === m);
+            el.setAttribute('aria-pressed', x === m ? 'true' : 'false');
+        }
     });
     const isVideo = m === 'video';
     document.getElementById('shutterPhoto').style.display = isVideo ? 'none'  : 'flex';
@@ -488,12 +532,15 @@ function switchMode(m) {
     const lvl  = document.getElementById('leveler');
     const proHud = document.getElementById('proHud');
 
-    proHud.style.display = m === 'pro' ? 'flex' : 'none';
+    if(proHud) proHud.style.display = m === 'pro' ? 'flex' : 'none';
     if (grid) grid.style.display = (m === 'pro' && S.gridOn) ? 'grid' : 'none';
     if (lvl)  lvl.style.display  = m === 'pro' ? 'block' : 'none';
 
     if (isVideo) startLiveLoop(); else cancelAnimationFrame(S.animReq);
-    initCamera();
+    
+    // Perbarui constraints kamera bila mode pro perlu spesifikasi lain (opsional)
+    // S.pro resets atau penyesuaian bisa dilakukan disini tanpa panggil ulang full initCamera kecuali rasio berubah.
+    initCamera(); 
 }
 
 // ─── QUICK BAR: TIMER ────────────────────────────────────────────
@@ -568,54 +615,41 @@ function onWB(val) {
     saveSettings();
 }
 
-// ─── ORIENTATION ENGINE ──────────────────────────────────────────
-function getDeviceAngle() {
-    if (typeof screen?.orientation?.angle === 'number') return screen.orientation.angle;
-    if (typeof window.orientation === 'number') return window.orientation;
-    return window.innerWidth > window.innerHeight ? 90 : 0;
-}
-
+// ─── ORIENTATION ENGINE (CORE FIX) ───────────────────────────────
 function buildCaptureCanvas() {
-    const vw  = vid.videoWidth, vh = vid.videoHeight;
-    const ang = getDeviceAngle();
-    const a   = ((ang % 360) + 360) % 360;
-    const nr  = (a === 0 || a === 180);
+    const vw = vid.videoWidth;
+    const vh = vid.videoHeight;
 
-    const canvasW = nr ? Math.min(vw, vh) : Math.max(vw, vh);
-    const canvasH = nr ? Math.max(vw, vh) : Math.min(vw, vh);
-
-    cvs.width  = canvasW;
-    cvs.height = canvasH;
+    cvs.width  = vw;
+    cvs.height = vh;
 
     const ctx = cvs.getContext('2d');
-    ctx.clearRect(0, 0, canvasW, canvasH);
+    ctx.clearRect(0, 0, vw, vh);
 
-    if (nr) {
-        ctx.save();
-        ctx.translate(canvasW / 2, canvasH / 2);
-        ctx.rotate(a === 0 ? Math.PI / 2 : -Math.PI / 2);
-        ctx.drawImage(vid, -canvasH / 2, -canvasW / 2, canvasH, canvasW);
-        ctx.restore();
+    // Logging sederhana untuk debugging orientasi
+    console.log({ videoWidth: vw, videoHeight: vh, inner: [window.innerWidth, window.innerHeight] });
+
+    ctx.save();
+    if (S.facing === 'user') {
+        // Handle mirror effect untuk kamera depan
+        ctx.translate(vw, 0); 
+        ctx.scale(-1, 1);
+        ctx.drawImage(vid, 0, 0, vw, vh);
     } else {
-        ctx.save();
-        if (a === 270 && S.facing === 'environment') {
-            ctx.translate(canvasW, 0); ctx.scale(-1, 1);
-        }
-        ctx.drawImage(vid, 0, 0, canvasW, canvasH);
-        ctx.restore();
+        // Render asli sesuai feed video tanpa rotasi berlebihan
+        ctx.drawImage(vid, 0, 0, vw, vh);
     }
-    return { ctx, canvasW, canvasH, angle: a };
+    ctx.restore();
+
+    return { ctx, canvasW: vw, canvasH: vh };
 }
 
 function drawLiveFrame(ctx, w, h) {
-    const ang = getDeviceAngle();
-    const a   = ((ang % 360) + 360) % 360;
-    const nr  = (a === 0 || a === 180);
     ctx.save();
-    if (nr) {
-        ctx.translate(w/2, h/2);
-        ctx.rotate(a === 0 ? Math.PI/2 : -Math.PI/2);
-        ctx.drawImage(vid, -h/2, -w/2, h, w);
+    if (S.facing === 'user') {
+        ctx.translate(w, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(vid, 0, 0, w, h);
     } else {
         ctx.drawImage(vid, 0, 0, w, h);
     }
@@ -628,11 +662,26 @@ async function applyWatermark(ctx, cw, ch, opts = {}) {
         owner = 'Original Creator', info = '', timestamp = '',
         gps = '', signature = '', style = 'dark', position = 'strip-bot',
         opacity = .75, logo = null, showGPS = true, showSig = true,
-        qrImage = null, qrPosition = 'in-strip'
+        qrImage = null, qrPosition = 'in-strip',
+        wmAdaptive = true
     } = opts;
 
     const base = Math.min(cw, ch);
     const px   = v => Math.round(base * v);
+
+    const isAdaptive = wmAdaptive !== false;
+    const isPortrait = ch > cw;
+
+    // Adaptasi font dan spacing berdasarkan orientasi hasil gambar
+    let fMain = px(.030), fSub = px(.021);
+    let padV  = px(.020), padH = px(.024);
+
+    if (isAdaptive && isPortrait) {
+        fMain = px(.035);
+        fSub  = px(.024);
+        padV  = px(.028);
+        padH  = px(.030);
+    }
 
     const PALS = {
         dark:    { bg:`rgba(0,0,0,${opacity*.82})`,       txt:'rgba(255,255,255,.92)', sub:'rgba(255,255,255,.55)', acc:'#00d4ff', bar:'#00d4ff' },
@@ -660,13 +709,21 @@ async function applyWatermark(ctx, cw, ch, opts = {}) {
     }
 
     if (position === 'strip-bot' || position === 'strip-top') {
-        const fMain = px(.030), fSub = px(.021);
-        const padV  = px(.020), padH = px(.024);
         const lh    = fMain * 1.22;
         const logoSz = lh * 1.7;
         const line1 = owner;
-        const line2 = [info, timestamp].filter(Boolean).join('  ·  ');
-        const line3 = (showGPS && gps) ? `📍 ${gps}` : null;
+
+        let line2 = '';
+        let line3 = null;
+
+        // Adaptasi Layout Text Content: Multi-line vs Single Line
+        if (isAdaptive && !isPortrait) {
+            line2 = [info, timestamp, (showGPS && gps) ? `📍 ${gps}` : null].filter(Boolean).join('  ·  ');
+        } else {
+            line2 = [info, timestamp].filter(Boolean).join('  ·  ');
+            line3 = (showGPS && gps) ? `📍 ${gps}` : null;
+        }
+
         const nLines = 1 + (line2 ? 1 : 0) + (line3 ? 1 : 0);
         const hasQrInStrip = qrImage && qrPosition === 'in-strip';
         const qrSz   = hasQrInStrip ? Math.min(ch * .09, cw * .075) : 0;
@@ -735,23 +792,23 @@ async function applyWatermark(ctx, cw, ch, opts = {}) {
 
     // Corner badge
     {
-        const fMain=px(.030), fSub=px(.020), pad=px(.022), mg=px(.020);
+        const mg=px(.020);
         const bw=cw*.50, bh=fMain*4.5, r=px(.010);
         const bx = position === 'corner-br' ? cw-bw-mg : mg;
         const by = ch-bh-mg;
         ctx.globalAlpha=1; ctx.fillStyle=P.bg; roundRect(ctx,bx,by,bw,bh,r); ctx.fill();
         ctx.fillStyle=P.bar; roundRect(ctx,bx,by,Math.max(3,px(.004)),bh,[r,0,0,r]); ctx.fill();
-        let tx=bx+pad;
+        let tx=bx+padH;
         if (logo) {
             try {
-                const lsz=bh*.52,lx=bx+pad*.55,ly=by+(bh-lsz)/2;
+                const lsz=bh*.52,lx=bx+padH*.55,ly=by+(bh-lsz)/2;
                 ctx.save();ctx.globalAlpha=opacity;
                 ctx.beginPath();ctx.arc(lx+lsz/2,ly+lsz/2,lsz/2,0,Math.PI*2);ctx.clip();
                 ctx.drawImage(logo,lx,ly,lsz,lsz);ctx.restore();
-                tx=lx+lsz+pad*.7;
+                tx=lx+lsz+padH*.7;
             } catch(_){}
         }
-        const mxW=bw-(tx-bx)-pad;
+        const mxW=bw-(tx-bx)-padH;
         ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=4;ctx.textAlign='left';
         ctx.fillStyle=P.txt;ctx.font=`700 ${fMain}px Outfit,sans-serif`;ctx.globalAlpha=1;
         ctx.fillText(clip(ctx,owner,mxW),tx,by+bh*.44);
@@ -852,7 +909,6 @@ function captureWithTimer() {
         count--;
         if (count > 0) {
             countEl.textContent = count;
-            // Re-trigger CSS animation
             countEl.style.animation = 'none';
             countEl.offsetHeight; // reflow
             countEl.style.animation = '';
@@ -909,6 +965,10 @@ async function capturePhoto(silent = false) {
         const qrSzPx = QR_PX[document.getElementById('qrSize').value] || 120;
         const fmt    = document.getElementById('exportFmt').value;
         const qual   = parseInt(document.getElementById('qualSlider').value) / 100;
+        
+        // Cek DOM untuk adaptive watermark (default true)
+        const adaptiveEl = document.getElementById('wmAdaptive');
+        const wmAdaptive = adaptiveEl ? adaptiveEl.checked : true;
 
         if (!silent) showProc('Menangkap gambar…');
         const { canvasW, canvasH } = buildCaptureCanvas();
@@ -931,7 +991,8 @@ async function capturePhoto(silent = false) {
             gps:  showGPS ? gpsStr() : '',
             signature: sig, style, position: pos, opacity: op,
             logo: S.logo, showGPS, showSig,
-            qrImage: qrImg, qrPosition: qrPos
+            qrImage: qrImg, qrPosition: qrPos,
+            wmAdaptive
         });
 
         if (!silent) showProc('Menyimpan…');
@@ -949,16 +1010,22 @@ async function capturePhoto(silent = false) {
 
             // Update gallery thumb
             const gt = document.getElementById('galleryThumb');
-            const tmpImg = new Image(); tmpImg.src = url;
-            gt.innerHTML = ''; gt.appendChild(tmpImg);
+            if(gt) {
+                const tmpImg = new Image(); tmpImg.src = url;
+                gt.innerHTML = ''; gt.appendChild(tmpImg);
+            }
 
             // Set up result
             const dl = document.getElementById('dlLink');
-            dl.href = url; dl.download = `AuthenticCam_${sig}.${ext}`;
-            document.getElementById('photoPreview').src = url;
-            document.getElementById('photoPreview').style.display = 'block';
-            document.getElementById('videoPreview').style.display = 'none';
-            document.getElementById('resultBadgeTxt').textContent = 'Foto Terverifikasi';
+            if(dl) { dl.href = url; dl.download = `AuthenticCam_${sig}.${ext}`; }
+            
+            const pPreview = document.getElementById('photoPreview');
+            const vPreview = document.getElementById('videoPreview');
+            const bTxt = document.getElementById('resultBadgeTxt');
+            
+            if(pPreview) { pPreview.src = url; pPreview.style.display = 'block'; }
+            if(vPreview) vPreview.style.display = 'none';
+            if(bTxt) bTxt.textContent = 'Foto Terverifikasi';
 
             fillMeta({ owner, info, ts, sig, gps: gpsStr(), w: canvasW, h: canvasH, hash,
                        fmt: fmt.toUpperCase(), size: (blob.size/1024).toFixed(0)+' KB' });
@@ -990,23 +1057,32 @@ function lockCapture(lock) {
 function showProc(msg) {
     const el = document.getElementById('procOverlay');
     const tx = document.getElementById('procTxt');
-    el.style.display = 'flex'; if (tx) tx.textContent = msg;
+    if(el) el.style.display = 'flex'; 
+    if (tx) tx.textContent = msg;
 }
-function hideProc() { document.getElementById('procOverlay').style.display = 'none'; }
+function hideProc() { 
+    const el = document.getElementById('procOverlay');
+    if(el) el.style.display = 'none'; 
+}
 
 // ─── VIDEO RECORDING ─────────────────────────────────────────────
 function startLiveLoop() {
     const draw = () => {
-        if (vid.readyState < 2) { S.animReq = requestAnimationFrame(draw); return; }
-        const ang  = ((getDeviceAngle() % 360) + 360) % 360;
-        const vw   = vid.videoWidth, vh = vid.videoHeight;
-        const nr   = (ang === 0 || ang === 180);
-        liveCvs.width  = nr ? Math.min(vw, vh) : Math.max(vw, vh);
-        liveCvs.height = nr ? Math.max(vw, vh) : Math.min(vw, vh);
+        if (vid.readyState < 2 || !vid.videoWidth) { S.animReq = requestAnimationFrame(draw); return; }
+        
+        const vw = vid.videoWidth, vh = vid.videoHeight;
+
+        // Sesuaikan canvas tanpa memaksakan rotasi tambahan
+        if (liveCvs.width !== vw || liveCvs.height !== vh) {
+            liveCvs.width  = vw;
+            liveCvs.height = vh;
+        }
+
         liveCtx.clearRect(0, 0, liveCvs.width, liveCvs.height);
         drawLiveFrame(liveCtx, liveCvs.width, liveCvs.height);
 
         if (S.recording) {
+            const adaptiveEl = document.getElementById('wmAdaptive');
             applyWatermark(liveCtx, liveCvs.width, liveCvs.height, {
                 owner:     document.getElementById('ownerName').value || 'Original Creator',
                 info:      document.getElementById('assetInfo').value || '',
@@ -1017,7 +1093,8 @@ function startLiveLoop() {
                 opacity:   parseInt(document.getElementById('wmOp').value) / 100,
                 logo: S.logo,
                 showGPS:  document.getElementById('wmGps').checked,
-                showSig:  document.getElementById('wmSig').checked
+                showSig:  document.getElementById('wmSig').checked,
+                wmAdaptive: adaptiveEl ? adaptiveEl.checked : true
             });
         }
         S.animReq = requestAnimationFrame(draw);
@@ -1039,12 +1116,18 @@ function startRec() {
         const blob = new Blob(S.chunks, { type: mime || 'video/webm' });
         const url  = URL.createObjectURL(blob);
         const ext  = mime?.includes('mp4') ? 'mp4' : 'webm';
+        
         const vp   = document.getElementById('videoPreview');
-        vp.src = url; vp.style.display = 'block';
-        document.getElementById('photoPreview').style.display = 'none';
+        const pp   = document.getElementById('photoPreview');
+        if(vp) { vp.src = url; vp.style.display = 'block'; }
+        if(pp) pp.style.display = 'none';
+        
         const dl = document.getElementById('dlLink');
-        dl.href = url; dl.download = `AuthenticCam_${S.sig}.${ext}`;
-        document.getElementById('resultBadgeTxt').textContent = 'Video Terverifikasi';
+        if(dl) { dl.href = url; dl.download = `AuthenticCam_${S.sig}.${ext}`; }
+        
+        const bTxt = document.getElementById('resultBadgeTxt');
+        if(bTxt) bTxt.textContent = 'Video Terverifikasi';
+        
         const owner = document.getElementById('ownerName').value || 'Original Creator';
         const ts    = new Date().toLocaleString('id-ID', { dateStyle:'short', timeStyle:'short' });
         fillMeta({ owner, info: document.getElementById('assetInfo').value,
@@ -1053,25 +1136,33 @@ function startRec() {
         openResult(); toast('✅ Video tersimpan!', 'ok');
     };
     S.recorder.start(100); S.recording = true;
-    document.getElementById('recChip').style.display = 'flex';
-    document.getElementById('shutterVideo').classList.add('rec');
+    
+    const recChip = document.getElementById('recChip');
+    const shVid = document.getElementById('shutterVideo');
     const dot = document.getElementById('shInnerVid');
-    dot.style.borderRadius = '8px'; dot.style.width = '28px'; dot.style.height = '28px';
+    if(recChip) recChip.style.display = 'flex';
+    if(shVid) shVid.classList.add('rec');
+    if(dot) { dot.style.borderRadius = '8px'; dot.style.width = '28px'; dot.style.height = '28px'; }
+    
     S.recTick = setInterval(() => {
         S.recSecs++;
         const m = String(Math.floor(S.recSecs/60)).padStart(2,'0');
         const s = String(S.recSecs % 60).padStart(2,'0');
-        document.getElementById('recTime').textContent = `${m}:${s}`;
+        const rt = document.getElementById('recTime');
+        if(rt) rt.textContent = `${m}:${s}`;
     }, 1000);
 }
 
 function stopRec() {
     if (S.recorder?.state !== 'inactive') S.recorder.stop();
     S.recording = false; clearInterval(S.recTick);
-    document.getElementById('recChip').style.display = 'none';
-    document.getElementById('shutterVideo').classList.remove('rec');
+    
+    const recChip = document.getElementById('recChip');
+    const shVid = document.getElementById('shutterVideo');
     const dot = document.getElementById('shInnerVid');
-    dot.style.borderRadius = '50%'; dot.style.width = ''; dot.style.height = '';
+    if(recChip) recChip.style.display = 'none';
+    if(shVid) shVid.classList.remove('rec');
+    if(dot) { dot.style.borderRadius = '50%'; dot.style.width = ''; dot.style.height = ''; }
 }
 
 function bestMime() {
@@ -1081,24 +1172,26 @@ function bestMime() {
 
 // ─── SETTINGS SHEET ──────────────────────────────────────────────
 function openSettings()  {
-    document.getElementById('settingsSheet').classList.add('open');
-    document.getElementById('sheetBackdrop').classList.add('open');
+    document.getElementById('settingsSheet')?.classList.add('open');
+    document.getElementById('sheetBackdrop')?.classList.add('open');
 }
 function closeSettings() {
-    document.getElementById('settingsSheet').classList.remove('open');
-    document.getElementById('sheetBackdrop').classList.remove('open');
+    document.getElementById('settingsSheet')?.classList.remove('open');
+    document.getElementById('sheetBackdrop')?.classList.remove('open');
 }
 function toggleScard(id) {
-    document.getElementById(id).classList.toggle('collapsed');
+    document.getElementById(id)?.classList.toggle('collapsed');
 }
 
 // ─── RESULT MODAL ────────────────────────────────────────────────
 function openResult() {
-    document.getElementById('resultOverlay').style.display = 'flex';
+    const overlay = document.getElementById('resultOverlay');
+    if(overlay) overlay.style.display = 'flex';
     closeSettings();
 }
 function closeResult() {
-    document.getElementById('resultOverlay').style.display = 'none';
+    const overlay = document.getElementById('resultOverlay');
+    if(overlay) overlay.style.display = 'none';
 }
 
 function fillMeta({ owner, info, ts, sig, gps, w, h, hash, fmt, size }) {
@@ -1113,21 +1206,25 @@ function fillMeta({ owner, info, ts, sig, gps, w, h, hash, fmt, size }) {
         if (S.gps.acc) rows.push(['AKURASI', `±${S.gps.acc}m`]);
     }
     if (gps && S.gps.addr) rows.push(['LOKASI', gps]);
-    document.getElementById('metaCard').innerHTML =
-        rows.map(([l, v]) => `<div class="mrow"><span class="mlbl">${l}</span><span class="mval">${esc(String(v))}</span></div>`).join('');
+    
+    const mc = document.getElementById('metaCard');
+    if(mc) mc.innerHTML = rows.map(([l, v]) => `<div class="mrow"><span class="mlbl">${l}</span><span class="mval">${esc(String(v))}</span></div>`).join('');
+    
     const hs = document.getElementById('hashStrip');
-    if (hash) {
-        hs.innerHTML = `<b style="color:rgba(0,212,255,.65)">SHA-256</b><br>${hash}`;
-        hs.style.display = 'block';
-    } else {
-        hs.style.display = 'none';
+    if(hs) {
+        if (hash) {
+            hs.innerHTML = `<b style="color:rgba(0,212,255,.65)">SHA-256</b><br>${hash}`;
+            hs.style.display = 'block';
+        } else {
+            hs.style.display = 'none';
+        }
     }
 }
 
 // ─── SHARE ───────────────────────────────────────────────────────
 async function shareAsset() {
     const dl = document.getElementById('dlLink');
-    if (!dl.href || dl.href === location.href) { toast('Ambil foto dulu!', 'err'); return; }
+    if (!dl || !dl.href || dl.href === location.href) { toast('Ambil foto dulu!', 'err'); return; }
     if (navigator.share) {
         try {
             const res  = await fetch(dl.href);
@@ -1227,6 +1324,7 @@ function playShutterSound() {
 // ─── FLASH EFFECT ────────────────────────────────────────────────
 function doFlash() {
     const el = document.getElementById('flashEl');
+    if(!el) return;
     el.classList.add('on');
     setTimeout(() => el.classList.remove('on'), 150);
 }
@@ -1276,7 +1374,7 @@ document.addEventListener('keydown', e => {
             e.preventDefault(); flipCamera(); break;
         case 'Escape':
             if (S.timerActive) cancelTimer();
-            else closeResult(); closeSettings();
+            else { closeResult(); closeSettings(); }
             break;
     }
 });
