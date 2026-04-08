@@ -1,116 +1,261 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="id" dir="ltr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-    <meta name="theme-color" content="#050810">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="color-scheme" content="dark">
+
+    <title>AuthenticCam Pro — Digital Asset Verification Camera</title>
+    <meta name="description" content="Aplikasi Web Kamera (PWA) untuk dokumentasi profesional dengan verifikasi aset digital, GPS, custom watermark, QR Code, dan AI Enhancement.">
+    <meta name="keywords" content="AuthenticCam Pro, aplikasi web kamera, PWA kamera, verifikasi digital, watermark otomatis, kamera GPS, dokumentasi instansi, web app">
+    <meta name="author" content="Tama Andrea Studio">
+    <meta name="robots" content="index, follow, max-image-preview:large">
+    <link rel="canonical" href="https://authenticam.app/">
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://authenticam.app/">
+    <meta property="og:site_name" content="AuthenticCam Pro">
+    <meta property="og:title" content="AuthenticCam Pro — Digital Asset Verification">
+    <meta property="og:description" content="Dokumentasikan momen penting dengan verifikasi keaslian digital, watermark kustom, dan AI otomatis langsung dari browser.">
+    <meta property="og:image" content="https://placehold.co/1200x630/000000/ffcc00?text=AuthenticCam+Pro&font=outfit">
+
+    <!-- Twitter Card -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="AuthenticCam Pro">
+    <meta name="twitter:description" content="Dokumentasikan momen dengan verifikasi keaslian digital, watermark kustom, dan AI otomatis.">
+    <meta name="twitter:image" content="https://placehold.co/1200x630/000000/ffcc00?text=AuthenticCam+Pro&font=outfit">
+
+    <!-- PWA Meta -->
+    <meta name="theme-color" content="#000000">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="application-name" content="AuthenticCam">
     <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="AuthenticCam">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>AuthenticCam Pro</title>
+    <link rel="apple-touch-icon" href="https://placehold.co/192x192/000000/ffcc00?text=AC&font=outfit">
     <link rel="manifest" href="manifest.json">
+
+    <!-- Fonts & Icons -->
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;900&family=Fira+Code:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" media="print" onload="this.media='all'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"></noscript>
+
     <link rel="stylesheet" href="style.css">
+
+    <!-- Structured Data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      "name": "AuthenticCam Pro",
+      "operatingSystem": "Any",
+      "applicationCategory": "PhotographyApplication",
+      "author": { "@type": "Organization", "name": "Tama Andrea Studio" },
+      "description": "Kamera web cerdas untuk verifikasi aset digital, watermark kustom, metadata GPS, QR Code, dan AI Enhancement.",
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "IDR" }
+    }
+    </script>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════
-     VIEWFINDER — fullscreen camera
-═══════════════════════════════════════════ -->
-<div class="vf-wrap" id="vfWrap">
-    <video id="video" autoplay playsinline muted></video>
-    <!-- live canvas overlay (video mode watermark preview) -->
-    <canvas id="liveCanvas"></canvas>
-
-    <!-- HUD: top bar -->
-    <div class="hud-top">
-        <div class="hud-logo">
-            <i class="fas fa-aperture"></i>
-            <span>AuthenticCam</span>
-            <span class="hud-pro">PRO</span>
-        </div>
-        <div class="hud-tr">
-            <span class="hud-res" id="camResolution">— × —</span>
-            <div class="hud-rec" id="recIndicator" style="display:none">
-                <span class="rec-dot"></span>REC <span id="recTimer">00:00</span>
-            </div>
-        </div>
+<noscript>
+    <div style="background:#ff3b30;color:#fff;padding:20px;text-align:center;font-family:sans-serif;position:fixed;top:0;width:100%;z-index:9999;">
+        <strong>Perhatian:</strong> AuthenticCam Pro memerlukan JavaScript. Harap aktifkan JavaScript di browser Anda.
     </div>
+</noscript>
 
-    <!-- HUD: focus brackets -->
-    <div class="focus-frame">
+<!-- PWA Install Banner -->
+<div class="pwa-banner" id="pwaBanner" style="display:none" role="alert">
+    <div class="pwa-banner-icon" aria-hidden="true"><i class="fas fa-camera"></i></div>
+    <div class="pwa-banner-text">
+        <strong>Pasang AuthenticCam</strong>
+        <span>Install untuk akses kamera offline!</span>
+    </div>
+    <button class="pwa-banner-install" id="pwaInstallBtn" aria-label="Install Aplikasi">Pasang</button>
+    <button class="pwa-banner-close" id="pwaDismissBtn" aria-label="Tutup"><i class="fas fa-times"></i></button>
+</div>
+
+<!-- Viewfinder -->
+<main class="cam-wrap" id="camWrap">
+    <video id="video" autoplay playsinline muted aria-label="Tampilan Kamera Langsung"></video>
+    <canvas id="liveCanvas" aria-hidden="true"></canvas>
+
+    <!-- Top Bar -->
+    <header class="top-bar">
+        <button class="top-btn" id="flashBtn" onclick="toggleFlash()" aria-label="Flash">
+            <i class="fas fa-bolt" id="flashIcon" aria-hidden="true"></i>
+        </button>
+        <div class="top-center">
+            <h1 class="app-title" style="margin:0;font-size:inherit;">AuthenticCam</h1>
+            <span class="app-ver">PRO</span>
+        </div>
+        <div class="top-right-group">
+            <button class="top-btn" id="fullscreenBtn" onclick="toggleFullscreen()" aria-label="Layar Penuh">
+                <i class="fas fa-expand" id="fullscreenIcon" aria-hidden="true"></i>
+            </button>
+            <button class="top-btn" id="settBtn" onclick="openSettings()" aria-label="Pengaturan">
+                <i class="fas fa-sliders" aria-hidden="true"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Status Chips -->
+    <section class="chips-row" aria-label="Status Kamera">
+        <div class="chip" id="gpsChip" aria-live="polite">
+            <i class="fas fa-location-dot" aria-hidden="true"></i>
+            <span id="gpsTxt">Lokasi…</span>
+        </div>
+        <div class="chip chip-res">
+            <span id="camRes">— × —</span>
+        </div>
+        <div class="chip chip-wake" id="wakeChip" style="display:none" title="Layar aktif terjaga">
+            <i class="fas fa-moon" aria-hidden="true"></i>
+        </div>
+        <div class="chip chip-rec" id="recChip" style="display:none" aria-live="assertive">
+            <span class="rec-dot" aria-hidden="true"></span>
+            <span id="recTime">00:00</span>
+        </div>
+    </section>
+
+    <!-- Focus Brackets -->
+    <div class="fbwrap" aria-hidden="true">
         <div class="fb tl"></div><div class="fb tr"></div>
         <div class="fb bl"></div><div class="fb br"></div>
     </div>
 
-    <!-- GPS status pill -->
-    <div class="gps-pill" id="gpsPill">
-        <i class="fas fa-location-dot"></i>
-        <span id="gpsStatus">Mengambil lokasi…</span>
+    <!-- Focus Ring -->
+    <div class="focus-ring" id="focusRing" aria-hidden="true"></div>
+
+    <!-- Zoom Indicator (pinch-to-zoom) -->
+    <div class="zoom-indicator" id="zoomIndicator" aria-hidden="true">
+        <span id="zoomIndicatorVal">1.0×</span>
     </div>
 
-    <!-- HUD: bottom controls — CAPTURE HERE -->
-    <div class="hud-bottom">
-        <button class="hud-btn" onclick="flipCamera()" id="flipBtn">
-            <i class="fas fa-camera-rotate"></i>
+    <!-- Pro HUD -->
+    <section class="pro-hud" id="proHud" style="display:none" aria-label="Kontrol Manual">
+        <div class="ph-row">
+            <label for="evSlider" class="ph-lbl">EV</label>
+            <input type="range" id="evSlider" class="ph-range" min="-2" max="2" step="0.1" value="0" oninput="onEV(this)">
+            <span class="ph-val" id="evVal">0</span>
+        </div>
+        <div class="ph-row">
+            <label for="zoomSlider" class="ph-lbl">ZOOM</label>
+            <input type="range" id="zoomSlider" class="ph-range" min="1" max="8" step="0.1" value="1" oninput="onZoom(this)">
+            <span class="ph-val" id="zoomVal">1×</span>
+        </div>
+        <div class="ph-row">
+            <label for="wbSelect" class="ph-lbl">WB</label>
+            <select id="wbSelect" class="ph-select" onchange="onWB(this.value)">
+                <option value="auto">Auto</option>
+                <option value="sunny">☀️ Cerah</option>
+                <option value="cloudy">☁️ Mendung</option>
+                <option value="indoor">💡 Indoor</option>
+                <option value="night">🌙 Malam</option>
+            </select>
+        </div>
+    </section>
+
+    <!-- Flash Effect -->
+    <div class="flash-el" id="flashEl" aria-hidden="true"></div>
+
+    <!-- Timer Countdown Overlay -->
+    <div class="timer-overlay" id="timerOverlay" style="display:none" aria-live="assertive" aria-atomic="true">
+        <div class="timer-count" id="timerCount">3</div>
+    </div>
+</main>
+
+<!-- Bottom Controls -->
+<nav class="cam-bottom" id="camBottom" aria-label="Navigasi">
+
+    <!-- Mode Row -->
+    <fieldset class="mode-row" aria-label="Mode" style="border:none;padding:0;margin:0;">
+        <button class="mode-pill" id="mVid"   onclick="switchMode('video')">VIDEO</button>
+        <button class="mode-pill active" id="mPhoto" onclick="switchMode('photo')" aria-pressed="true">FOTO</button>
+        <button class="mode-pill" id="mPro"   onclick="switchMode('pro')">PRO</button>
+    </fieldset>
+
+    <!-- Quick Action Bar (Timer / Grid / Burst) -->
+    <div class="quick-bar" id="quickBar">
+        <button class="quick-btn" id="timerBtn" onclick="cycleTimer()" title="Self-timer" aria-label="Self-timer">
+            <i class="fas fa-stopwatch" aria-hidden="true"></i>
+            <span class="quick-label" id="timerLabel">Off</span>
+        </button>
+        <button class="quick-btn" id="gridBtn" onclick="toggleGrid()" title="Grid" aria-label="Grid">
+            <i class="fas fa-border-all" aria-hidden="true"></i>
+            <span class="quick-label">Grid</span>
+        </button>
+        <button class="quick-btn" id="burstBtn" onclick="cycleBurst()" title="Burst Mode" aria-label="Burst" id="burstModeLbl">
+            <i class="fas fa-layer-group" aria-hidden="true"></i>
+            <span class="quick-label" id="burstLabel">×1</span>
+        </button>
+        <button class="quick-btn" id="ratioBtn" onclick="cycleRatio()" title="Rasio Aspek" aria-label="Rasio">
+            <i class="fas fa-crop" aria-hidden="true"></i>
+            <span class="quick-label" id="ratioLabel">4:3</span>
+        </button>
+    </div>
+
+    <!-- Control Row (Gallery, Shutter, Flip) -->
+    <section class="ctrl-row" aria-label="Tombol Aksi">
+        <button class="side-btn gallery-btn" id="galleryBtn" onclick="openResult()" aria-label="Buka Hasil Terakhir">
+            <div class="gallery-thumb" id="galleryThumb" aria-hidden="true">
+                <i class="fas fa-image"></i>
+            </div>
         </button>
 
-        <div class="cap-zone">
-            <button class="btn-cap" id="snapBtn" onclick="capturePhoto()">
-                <span class="cap-ring"></span>
-                <span class="cap-dot"></span>
+        <div class="shutter-wrap">
+            <!-- Photo Shutter -->
+            <button class="shutter-btn" id="shutterPhoto" onclick="captureWithTimer()" aria-label="Ambil Foto">
+                <span class="sh-outer"></span>
+                <span class="sh-inner" id="shInner"></span>
             </button>
-            <button class="btn-cap btn-cap-vid" id="videoBtn" onclick="toggleRecording()" style="display:none">
-                <span class="cap-ring cap-ring-red"></span>
-                <span class="cap-dot" id="vidDot"></span>
+            <!-- Video Shutter -->
+            <button class="shutter-btn shutter-vid" id="shutterVideo" onclick="toggleRecording()" style="display:none" aria-label="Rekam Video">
+                <span class="sh-outer sh-outer-r"></span>
+                <span class="sh-inner sh-inner-r" id="shInnerVid"></span>
             </button>
         </div>
 
-        <button class="hud-btn" onclick="toggleSettings()" id="settingsBtn">
-            <i class="fas fa-sliders"></i>
+        <button class="side-btn" id="flipBtn" onclick="flipCamera()" aria-label="Tukar Kamera">
+            <i class="fas fa-camera-rotate" aria-hidden="true"></i>
         </button>
-    </div>
+    </section>
 
-    <!-- Flash overlay -->
-    <div class="flash" id="flashEl"></div>
-</div>
+</nav>
 
-<!-- Mode tabs floating -->
-<div class="mode-float" id="modeFloat">
-    <button class="mpill active" id="tabPhoto" onclick="switchMode('photo')">
-        <i class="fas fa-camera"></i> Foto
-    </button>
-    <button class="mpill" id="tabVideo" onclick="switchMode('video')">
-        <i class="fas fa-video"></i> Video
-    </button>
-</div>
+<!-- Settings Sheet Backdrop -->
+<div class="sheet-backdrop" id="sheetBackdrop" onclick="closeSettings()" aria-hidden="true"></div>
 
-<!-- ═══════════════════════════════════════════
-     SETTINGS DRAWER
-═══════════════════════════════════════════ -->
-<div class="backdrop" id="backdrop" onclick="toggleSettings()"></div>
-<div class="drawer" id="drawer">
-    <div class="drw-handle" onclick="toggleSettings()"></div>
-    <div class="drw-body">
+<!-- Settings Sheet -->
+<section class="settings-sheet" id="settingsSheet" role="dialog" aria-labelledby="settingsTitle" aria-modal="true">
+    <div class="sheet-handle" onclick="closeSettings()" aria-label="Tutup Pengaturan"></div>
+    <div class="sheet-scroll">
 
-        <p class="drw-title">Pengaturan</p>
+        <h2 class="sheet-title" id="settingsTitle">Pengaturan AuthenticCam</h2>
 
-        <!-- Identitas -->
-        <div class="dcard" id="cIdentity">
-            <div class="dcard-hdr" onclick="toggleCard('cIdentity')">
-                <span><i class="fas fa-user-circle"></i> Identitas & Label</span>
-                <i class="fas fa-chevron-down tc"></i>
-            </div>
-            <div class="dcard-body">
-                <div class="fg"><label>Nama / Instansi</label>
-                    <input type="text" id="ownerName" placeholder="Nama lengkap kamu"></div>
-                <div class="fg"><label>Keterangan Aset</label>
-                    <input type="text" id="assetInfo" placeholder="Contoh: Dokumentasi FLS2N 2026"></div>
-                <div class="fg"><label>Resolusi Kamera</label>
-                    <select id="quality">
+        <!-- Identitas & Label -->
+        <details class="scard" id="scId" open>
+            <summary class="scard-h" onclick="toggleScard('scId')">
+                <i class="fas fa-user-circle"></i><span>Identitas & Label</span>
+                <i class="fas fa-chevron-down sarr"></i>
+            </summary>
+            <div class="scard-b">
+                <div class="fg">
+                    <label for="ownerName">Nama / Instansi</label>
+                    <input type="text" id="ownerName" placeholder="Nama lengkap atau instansi" oninput="saveSettings()">
+                </div>
+                <div class="fg">
+                    <label for="assetInfo">Keterangan Aset</label>
+                    <input type="text" id="assetInfo" placeholder="Contoh: Dokumentasi FLS2N 2026" oninput="saveSettings()">
+                </div>
+                <div class="fg">
+                    <label for="quality">Resolusi Kamera</label>
+                    <select id="quality" onchange="saveSettings(); initCamera();">
                         <option value="3840">Ultra HD (4K)</option>
                         <option value="1920" selected>Full HD (1080p)</option>
                         <option value="1280">HD (720p)</option>
@@ -118,27 +263,29 @@
                     </select>
                 </div>
             </div>
-        </div>
+        </details>
 
-        <!-- Watermark -->
-        <div class="dcard collapsed" id="cWatermark">
-            <div class="dcard-hdr" onclick="toggleCard('cWatermark')">
-                <span><i class="fas fa-stamp"></i> Kustomisasi Watermark</span>
-                <i class="fas fa-chevron-down tc"></i>
-            </div>
-            <div class="dcard-body">
-                <div class="two-col">
-                    <div class="fg"><label>Posisi</label>
-                        <select id="wmPos">
-                            <option value="bottom" selected>Bawah (Strip)</option>
-                            <option value="top">Atas (Strip)</option>
+        <!-- Kustomisasi Watermark -->
+        <details class="scard collapsed" id="scWm">
+            <summary class="scard-h" onclick="toggleScard('scWm')">
+                <i class="fas fa-stamp"></i><span>Kustomisasi Watermark</span>
+                <i class="fas fa-chevron-down sarr"></i>
+            </summary>
+            <div class="scard-b">
+                <div class="row2">
+                    <div class="fg">
+                        <label for="wmPos">Posisi</label>
+                        <select id="wmPos" onchange="saveSettings()">
+                            <option value="strip-bot" selected>Strip Bawah</option>
+                            <option value="strip-top">Strip Atas</option>
                             <option value="corner-bl">Pojok Kiri Bawah</option>
                             <option value="corner-br">Pojok Kanan Bawah</option>
-                            <option value="diagonal">Diagonal Tengah</option>
+                            <option value="diagonal">Diagonal Ghost</option>
                         </select>
                     </div>
-                    <div class="fg"><label>Gaya</label>
-                        <select id="wmStyle">
+                    <div class="fg">
+                        <label for="wmStyle">Gaya</label>
+                        <select id="wmStyle" onchange="saveSettings()">
                             <option value="dark" selected>Gelap</option>
                             <option value="light">Terang</option>
                             <option value="glass">Glass</option>
@@ -146,34 +293,76 @@
                         </select>
                     </div>
                 </div>
-                <div class="fg"><label>Opasitas: <span id="opVal">75</span>%</label>
-                    <input type="range" id="wmOp" min="20" max="100" value="75" class="slider">
+                <div class="fg">
+                    <label for="wmOp">Opasitas <span id="opVal">75</span>%</label>
+                    <input type="range" id="wmOp" min="20" max="100" value="75" class="slider"
+                        oninput="document.getElementById('opVal').textContent=this.value; saveSettings()">
                 </div>
-                <div class="fg"><label>Logo / Ikon (opsional)</label>
-                    <div class="file-drop" onclick="document.getElementById('logoFile').click()">
-                        <i class="fas fa-image"></i>
-                        <span id="logoName">Upload logo</span>
-                    </div>
+                <div class="fg">
+                    <span class="label-text">Logo (opsional)</span>
+                    <button type="button" class="fdrop" onclick="document.getElementById('logoFile').click()" aria-label="Upload logo">
+                        <i class="fas fa-image" aria-hidden="true"></i>
+                        <span id="logoName">Upload logo kamu</span>
+                    </button>
                     <input type="file" id="logoFile" accept="image/*" style="display:none" onchange="loadLogo(event)">
                 </div>
-                <!-- Tampilkan GPS di watermark -->
-                <label class="toggle-row">
-                    <input type="checkbox" id="wmGps" checked>
-                    <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                    <span>Tampilkan koordinat GPS</span>
+                <label class="tog" for="wmGps">
+                    <input type="checkbox" id="wmGps" checked onchange="saveSettings()">
+                    <span class="tog-track"><span class="tog-dot"></span></span>
+                    <span>Tampilkan GPS di watermark</span>
+                </label>
+                <label class="tog" for="wmSig">
+                    <input type="checkbox" id="wmSig" checked onchange="saveSettings()">
+                    <span class="tog-track"><span class="tog-dot"></span></span>
+                    <span>Tampilkan ID Signature</span>
                 </label>
             </div>
-        </div>
+        </details>
 
-        <!-- Enhancement -->
-        <div class="dcard collapsed" id="cEnhance">
-            <div class="dcard-hdr" onclick="toggleCard('cEnhance')">
-                <span><i class="fas fa-wand-magic-sparkles"></i> AI Enhancement</span>
-                <span class="badge-new">BARU</span>
-                <i class="fas fa-chevron-down tc"></i>
+        <!-- QR Code -->
+        <details class="scard collapsed" id="scQr">
+            <summary class="scard-h" onclick="toggleScard('scQr')">
+                <i class="fas fa-qrcode"></i><span>QR Code Verifikasi</span>
+                <span class="snew">BARU</span>
+                <i class="fas fa-chevron-down sarr"></i>
+            </summary>
+            <div class="scard-b">
+                <p class="shint">QR berisi metadata foto — scan untuk verifikasi keaslian.</p>
+                <label class="tog" for="qrOn">
+                    <input type="checkbox" id="qrOn" onchange="saveSettings()">
+                    <span class="tog-track"><span class="tog-dot"></span></span>
+                    <span>Aktifkan QR Code</span>
+                </label>
+                <div class="row2">
+                    <div class="fg">
+                        <label for="qrPos">Posisi QR</label>
+                        <select id="qrPos" onchange="saveSettings()">
+                            <option value="in-strip" selected>Dalam Strip</option>
+                            <option value="corner-br">Pojok Kanan Bawah</option>
+                            <option value="corner-bl">Pojok Kiri Bawah</option>
+                            <option value="corner-tr">Pojok Kanan Atas</option>
+                        </select>
+                    </div>
+                    <div class="fg">
+                        <label for="qrSize">Ukuran QR</label>
+                        <select id="qrSize" onchange="saveSettings()">
+                            <option value="small">Kecil</option>
+                            <option value="medium" selected>Sedang</option>
+                            <option value="large">Besar</option>
+                        </select>
+                    </div>
+                </div>
             </div>
-            <div class="dcard-body">
-                <p class="hint">Tingkatkan kualitas foto kamera HP secara otomatis.</p>
+        </details>
+
+        <!-- AI Enhancement -->
+        <details class="scard collapsed" id="scEnh">
+            <summary class="scard-h" onclick="toggleScard('scEnh')">
+                <i class="fas fa-wand-magic-sparkles"></i><span>AI Enhancement</span>
+                <i class="fas fa-chevron-down sarr"></i>
+            </summary>
+            <div class="scard-b">
+                <p class="shint">Tingkatkan kualitas foto secara otomatis.</p>
                 <div class="presets">
                     <button class="pp active" onclick="setPreset('none')"     id="pNone">Original</button>
                     <button class="pp"        onclick="setPreset('auto')"     id="pAuto">✨ Auto</button>
@@ -181,68 +370,159 @@
                     <button class="pp"        onclick="setPreset('night')"    id="pNight">🌙 Night</button>
                     <button class="pp"        onclick="setPreset('portrait')" id="pPortrait">🧑 Portrait</button>
                 </div>
-                <div class="sgroup">
-                    <div class="sr"><label><i class="fas fa-sun"></i>Brightness</label><input type="range" id="eBri" min="-100" max="100" value="0" class="slider" oninput="updFilter()"><span id="eBriV" class="sv">0</span></div>
-                    <div class="sr"><label><i class="fas fa-circle-half-stroke"></i>Contrast</label><input type="range" id="eCon" min="-100" max="100" value="0" class="slider" oninput="updFilter()"><span id="eConV" class="sv">0</span></div>
-                    <div class="sr"><label><i class="fas fa-palette"></i>Saturation</label><input type="range" id="eSat" min="-100" max="100" value="0" class="slider" oninput="updFilter()"><span id="eSatV" class="sv">0</span></div>
-                    <div class="sr"><label><i class="fas fa-crosshairs"></i>Sharpness</label><input type="range" id="eShr" min="0" max="100" value="0" class="slider" oninput="updFilter()"><span id="eShrV" class="sv">0</span></div>
-                    <div class="sr"><label><i class="fas fa-temperature-half"></i>Warmth</label><input type="range" id="eWrm" min="-100" max="100" value="0" class="slider" oninput="updFilter()"><span id="eWrmV" class="sv">0</span></div>
+                <div class="sgrp">
+                    <div class="sr"><label for="eBri">☀️ Brightness</label><input type="range" id="eBri" min="-100" max="100" value="0" class="slider" oninput="updFilter()"><span id="eBriV" class="sv">0</span></div>
+                    <div class="sr"><label for="eCon">◑ Contrast</label><input type="range" id="eCon" min="-100" max="100" value="0" class="slider" oninput="updFilter()"><span id="eConV" class="sv">0</span></div>
+                    <div class="sr"><label for="eSat">🎨 Saturation</label><input type="range" id="eSat" min="-100" max="100" value="0" class="slider" oninput="updFilter()"><span id="eSatV" class="sv">0</span></div>
+                    <div class="sr"><label for="eShr">⊕ Sharpness</label><input type="range" id="eShr" min="0" max="100" value="0" class="slider" oninput="updFilter()"><span id="eShrV" class="sv">0</span></div>
+                    <div class="sr"><label for="eWrm">🌡 Warmth</label><input type="range" id="eWrm" min="-100" max="100" value="0" class="slider" oninput="updFilter()"><span id="eWrmV" class="sv">0</span></div>
                 </div>
-                <button class="btn-ghost-red" onclick="resetFilters()"><i class="fas fa-undo"></i> Reset</button>
+                <button class="btn-ghost-r" onclick="resetFilters()"><i class="fas fa-undo"></i> Reset Parameter</button>
             </div>
-        </div>
+        </details>
+
+        <!-- Format & Kompresi -->
+        <details class="scard collapsed" id="scExp">
+            <summary class="scard-h" onclick="toggleScard('scExp')">
+                <i class="fas fa-file-export"></i><span>Format & Kompresi</span>
+                <i class="fas fa-chevron-down sarr"></i>
+            </summary>
+            <div class="scard-b">
+                <div class="row2">
+                    <div class="fg">
+                        <label for="exportFmt">Format Output</label>
+                        <select id="exportFmt" onchange="updFmtHint(); saveSettings()">
+                            <option value="jpeg" selected>JPEG</option>
+                            <option value="png">PNG (Lossless)</option>
+                            <option value="webp">WebP</option>
+                        </select>
+                    </div>
+                    <div class="fg">
+                        <label for="qualSlider">Kualitas <span id="qualVal">92</span>%</label>
+                        <input type="range" id="qualSlider" min="50" max="100" value="92" class="slider"
+                            oninput="document.getElementById('qualVal').textContent=this.value; saveSettings()">
+                    </div>
+                </div>
+                <p class="shint" id="fmtHint">JPEG — ukuran kecil, kualitas baik.</p>
+            </div>
+        </details>
+
+        <!-- Aksesibilitas & Bantuan -->
+        <details class="scard collapsed" id="scAccess">
+            <summary class="scard-h" onclick="toggleScard('scAccess')">
+                <i class="fas fa-keyboard"></i><span>Pintasan & Aksesibilitas</span>
+                <i class="fas fa-chevron-down sarr"></i>
+            </summary>
+            <div class="scard-b">
+                <p class="shint">Pintasan keyboard dan tombol perangkat.</p>
+                <div class="shortcut-list">
+                    <div class="sc-row"><kbd>Spasi</kbd><span>Ambil foto</span></div>
+                    <div class="sc-row"><kbd>V</kbd><span>Mulai/stop rekam</span></div>
+                    <div class="sc-row"><kbd>F</kbd><span>Flash on/off</span></div>
+                    <div class="sc-row"><kbd>G</kbd><span>Toggle grid</span></div>
+                    <div class="sc-row"><kbd>T</kbd><span>Cycle timer</span></div>
+                    <div class="sc-row"><kbd>←→</kbd><span>Tukar kamera</span></div>
+                    <div class="sc-row"><kbd>Volume ↑↓</kbd><span>Ambil foto (hardware)</span></div>
+                </div>
+                <label class="tog" for="hapticTog">
+                    <input type="checkbox" id="hapticTog" checked onchange="saveSettings()">
+                    <span class="tog-track"><span class="tog-dot"></span></span>
+                    <span>Haptic feedback</span>
+                </label>
+                <label class="tog" for="soundTog">
+                    <input type="checkbox" id="soundTog" onchange="saveSettings()">
+                    <span class="tog-track"><span class="tog-dot"></span></span>
+                    <span>Suara shutter (klik)</span>
+                </label>
+                <button class="btn-ghost-r" onclick="requestPwaInstall()" id="installBtn" style="display:none">
+                    <i class="fas fa-download"></i> Pasang sebagai Aplikasi
+                </button>
+            </div>
+        </details>
+
+        <!-- Support Developer -->
+        <section class="scard support-card" id="scSupport">
+            <header class="scard-h" onclick="toggleScard('scSupport')">
+                <i class="fas fa-heart" style="color:#ff6b8a"></i>
+                <span>Dukung Developer</span>
+                <i class="fas fa-chevron-down sarr"></i>
+            </header>
+            <div class="scard-b">
+                <div class="support-inner">
+                    <div class="support-avatar" aria-hidden="true"><i class="fas fa-code"></i></div>
+                    <div class="support-text">
+                        <p class="support-name">Tama Andrea</p>
+                        <p class="support-desc">AuthenticCam Pro dibuat & dikembangkan secara gratis. Kalau kamu suka dan merasa terbantu, kamu bisa mendukung lewat Saweria. Setiap dukungan sangat berarti! 🙏</p>
+                    </div>
+                </div>
+                <a href="https://saweria.co/tamaandrea" target="_blank" rel="noopener noreferrer" class="btn-saweria">
+                    <i class="fas fa-mug-hot" aria-hidden="true"></i> Traktir Kopi di Saweria
+                </a>
+                <p class="support-note">saweria.co/tamaandrea</p>
+            </div>
+        </section>
+
+        <footer class="sheet-footer">
+            <p>AuthenticCam Pro · Digital Asset Verification</p>
+            <p>© 2026 Tama Andrea Studio · v9.0</p>
+        </footer>
 
     </div>
-</div>
+</section>
 
-<!-- ═══════════════════════════════════════════
-     RESULT MODAL
-═══════════════════════════════════════════ -->
-<div class="result-overlay" id="resultOverlay" style="display:none">
+<!-- Result Overlay -->
+<section class="result-overlay" id="resultOverlay" style="display:none" role="dialog" aria-modal="true" aria-label="Hasil Tangkapan">
     <div class="result-box">
-
-        <button class="res-close" onclick="closeResult()"><i class="fas fa-times"></i></button>
-
-        <div class="res-badge" id="resBadge">
-            <i class="fas fa-shield-check"></i>
-            <span id="resBadgeTxt">Foto Terverifikasi</span>
+        <button class="result-close" onclick="closeResult()" aria-label="Tutup">
+            <i class="fas fa-times" aria-hidden="true"></i>
+        </button>
+        <div class="result-badge" id="resultBadge">
+            <i class="fas fa-shield-check" aria-hidden="true"></i>
+            <span id="resultBadgeTxt">Foto Terverifikasi</span>
         </div>
-
-        <!-- Preview -->
-        <div class="res-preview">
-            <img id="photoPreview" style="display:none" alt="">
-            <video id="videoPreview" controls style="display:none; width:100%; border-radius:10px;"></video>
-        </div>
-
-        <!-- Metadata card -->
+        <figure class="result-img-wrap" style="margin:0;">
+            <img id="photoPreview" style="display:none" alt="Pratinjau hasil tangkapan">
+            <video id="videoPreview" controls style="display:none;width:100%;border-radius:10px;" aria-label="Pratinjau video"></video>
+        </figure>
         <div class="meta-card" id="metaCard"></div>
-
-        <!-- Verification hash -->
-        <div class="verify-strip" id="verifyStrip"></div>
-
-        <!-- Actions -->
-        <div class="res-actions">
-            <a id="dlLink" download="AuthenticCam.png">
-                <button class="btn-save"><i class="fas fa-download"></i> Simpan</button>
+        <div class="hash-strip" id="hashStrip" style="display:none"></div>
+        <nav class="result-acts" aria-label="Aksi File">
+            <a id="dlLink" download="AuthenticCam.jpg" aria-label="Unduh">
+                <button class="btn-save"><i class="fas fa-download" aria-hidden="true"></i> Simpan</button>
             </a>
-            <button class="btn-share" onclick="shareAsset()"><i class="fas fa-share-nodes"></i> Bagikan</button>
-        </div>
-        <button class="btn-retake" onclick="closeResult()">
-            <i class="fas fa-redo"></i> Ambil Lagi
+            <button class="btn-share" onclick="shareAsset()" aria-label="Bagikan">
+                <i class="fas fa-share-nodes" aria-hidden="true"></i> Bagikan
+            </button>
+        </nav>
+        <button class="btn-retake" onclick="closeResult()" aria-label="Ambil Ulang">
+            <i class="fas fa-redo" aria-hidden="true"></i> Ambil Lagi
         </button>
     </div>
+</section>
+
+<!-- Processing Overlay -->
+<div class="proc-overlay" id="procOverlay" style="display:none" role="status" aria-live="assertive">
+    <div class="proc-spin" aria-hidden="true"></div>
+    <div class="proc-txt" id="procTxt">Memproses Aset…</div>
 </div>
 
-<!-- Hidden processing canvas -->
-<canvas id="canvas" style="display:none;"></canvas>
+<!-- Hidden capture canvas -->
+<canvas id="canvas" style="display:none;" aria-hidden="true"></canvas>
 
-<script>
+<!-- Libraries -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" defer></script>
+
+<!-- Service Worker Registration -->
+<script defer>
     if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () =>
-            navigator.serviceWorker.register('./sw.js').catch(() => {})
-        );
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js', { scope: './' })
+                .then(r => console.log('[SW] Registered:', r.scope))
+                .catch(e => console.warn('[SW] Failed:', e));
+        });
     }
 </script>
-<script src="script.js"></script>
+
+<script src="script.js" defer></script>
 </body>
 </html>

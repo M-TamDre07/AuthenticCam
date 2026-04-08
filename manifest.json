@@ -1,15 +1,78 @@
 {
     "name": "AuthenticCam Pro",
     "short_name": "AuthenticCam",
-    "description": "Digital Asset Verification — Watermark, GPS, AI Enhancement",
-    "start_url": "./index.html",
+    "description": "Digital Asset Verification Camera — OEM Watermark · GPS · QR Code · AI Enhancement",
+    "start_url": "./index.html?source=pwa",
+    "scope": "./",
     "display": "fullscreen",
+    "display_override": ["window-controls-overlay", "fullscreen", "standalone", "minimal-ui"],
     "orientation": "any",
-    "background_color": "#050810",
-    "theme_color": "#050810",
+    "background_color": "#000000",
+    "theme_color": "#000000",
     "icons": [
-        { "src": "https://placehold.co/192x192/00d4ff/050810?text=AC&font=outfit", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
-        { "src": "https://placehold.co/512x512/00d4ff/050810?text=AC&font=outfit", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+        {
+            "src": "https://placehold.co/192x192/000000/ffcc00?text=AC&font=outfit",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "https://placehold.co/512x512/000000/ffcc00?text=AC&font=outfit",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
     ],
-    "categories": ["photo", "productivity", "utilities"]
+    "screenshots": [
+        {
+            "src": "https://placehold.co/390x844/000000/ffcc00?text=AuthenticCam+Pro&font=outfit",
+            "sizes": "390x844",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "AuthenticCam Pro - Kamera Verifikasi Digital"
+        },
+        {
+            "src": "https://placehold.co/1280x800/000000/ffcc00?text=AuthenticCam+Pro+Desktop&font=outfit",
+            "sizes": "1280x800",
+            "type": "image/png",
+            "form_factor": "wide",
+            "label": "AuthenticCam Pro - Desktop View"
+        }
+    ],
+    "categories": ["photo", "productivity", "utilities"],
+    "lang": "id",
+    "dir": "ltr",
+    "prefer_related_applications": false,
+    "edge_side_panel": { "preferred_width": 480 },
+    "handle_links": "preferred",
+    "file_handlers": [
+        {
+            "action": "./index.html",
+            "accept": { "image/*": [".jpg", ".jpeg", ".png", ".webp"] }
+        }
+    ],
+    "share_target": {
+        "action": "./index.html",
+        "method": "POST",
+        "enctype": "multipart/form-data",
+        "params": {
+            "files": [{ "name": "file", "accept": ["image/*"] }]
+        }
+    },
+    "shortcuts": [
+        {
+            "name": "Ambil Foto",
+            "short_name": "Foto",
+            "description": "Buka kamera langsung ke mode foto",
+            "url": "./index.html?mode=photo",
+            "icons": [{ "src": "https://placehold.co/96x96/000000/ffcc00?text=📷", "sizes": "96x96" }]
+        },
+        {
+            "name": "Rekam Video",
+            "short_name": "Video",
+            "description": "Buka kamera langsung ke mode video",
+            "url": "./index.html?mode=video",
+            "icons": [{ "src": "https://placehold.co/96x96/000000/ff3b30?text=🎬", "sizes": "96x96" }]
+        }
+    ]
 }
