@@ -147,24 +147,77 @@ window.addEventListener('deviceorientation', e => {
         S.wasLevel = false;
     }
 });
+// ─── SCREEN MANAGEMENT (Wake Lock & Orientation) ─────────────────────────
 
-// ─── SCREEN WAKE LOCK ────────────────────────────────────────────
+// Fungsi untuk menahan layar agar tidak mati
 async function initWakeLock() {
-    if (!('wakeLock' in navigator)) return;
+    if (!('wakeLock' in navigator)) {
+        console.warn('[WakeLock] API tidak didukung di browser ini.');
+        return;
+    }
+    
     try {
         S.wakeLock = await navigator.wakeLock.request('screen');
         const wakeChip = document.getElementById('wakeChip');
         if (wakeChip) wakeChip.style.display = 'flex';
+        
         S.wakeLock.addEventListener('release', () => {
             if (wakeChip) wakeChip.style.display = 'none';
             S.wakeLock = null;
+            console.log('[WakeLock] Terlepas.');
         });
-    } catch(e) { console.warn('[WakeLock]', e); }
+    } catch(e) { 
+        console.warn('[WakeLock] Gagal diaktifkan:', e); 
+    }
 }
-async function reacquireWakeLock() {
-    if (!S.wakeLock && document.visibilityState === 'visible') await initWakeLock();
+
+// Fungsi untuk mengunci orientasi layar berdasarkan S.mode
+async function lockOrientation() {
+    // Cek apakah browser mendukung Screen Orientation API
+    if (!('orientation' in screen && 'lock' in screen.orientation)) {
+        console.warn('[OrientationLock] API tidak didukung di browser ini.');
+        return;
+    }
+
+    try {
+        if (S.mode === 'photo') {
+            await screen.orientation.lock('portrait');
+            console.log('[OrientationLock] Terkunci di Portrait');
+        } else {
+            await screen.orientation.lock('landscape');
+            console.log('[OrientationLock] Terkunci di Landscape');
+        }
+    } catch(e) {
+        // Error biasanya terjadi jika web tidak dalam mode Fullscreen atau bukan PWA
+        console.warn('[OrientationLock] Gagal mengunci orientasi:', e.message);
+    }
 }
-document.addEventListener('visibilitychange', reacquireWakeLock);
+
+// Fungsi inisialisasi / re-acquire saat tab kembali dibuka
+async function handleVisibilityChange() {
+    if (document.visibilityState === 'visible') {
+        // Ambil kembali Wake Lock jika terlepas saat app di-minimize
+        if (!S.wakeLock) {
+            await initWakeLock();
+        }
+        // Pastikan orientasi juga tetap terkunci sesuai mode terakhir
+        await lockOrientation();
+    }
+}
+
+// Pasang event listener
+document.addEventListener('visibilitychange', handleVisibilityChange);
+
+// ─── CONTOH PENGGUNAAN ───────────────────────────────────────────────────
+// Panggil ini saat inisialisasi awal aplikasi:
+// await initWakeLock();
+// await lockOrientation();
+
+// Panggil ini jika user mengubah mode di dalam aplikasi:
+async function changeMode(newMode) {
+    S.mode = newMode;
+    await lockOrientation(); // Update orientasi saat mode berubah
+}
 
 // ─── PWA INSTALL PROMPT ──────────────────────────────────────────
 window.addEventListener('beforeinstallprompt', e => {
@@ -441,6 +494,8 @@ window.addEventListener('resize', () => {
         liveCvs.width = vid.videoWidth;
         liveCvs.height = vid.videoHeight;
     }
+    // Perbarui layout class jika user resize browser (desktop to tablet viewport, dsb)
+    applyResponsiveLayout();
 });
 
 function flipCamera() {
@@ -615,33 +670,217 @@ function onWB(val) {
     saveSettings();
 }
 
-// ─── ORIENTATION ENGINE (CORE FIX) ───────────────────────────────
+// ─── ORIENTATION ENGINE (UPGRADED) ──────────────────────────────
+function normalizeAngle(angle) {
+    return ((angle % 360) + 360) % 360;
+}
+
+function isTouchLikeDevice() {
+    return (navigator.maxTouchPoints || 0) > 0 || window.matchMedia?.('(pointer: coarse)').matches;
+}
+
+function isTabletLikeDevice() {
+    const minSide = Math.min(screen?.width || 0, screen?.height || 0);
+    return isTouchLikeDevice() && minSide >= 600;
+}
+
+function getDeviceOrientation() {
+    const screenAngle = screen?.orientation?.angle;
+    if (Number.isFinite(screenAngle)) return normalizeAngle(screenAngle);
+
+    if (Number.isFinite(window.orientation)) return normalizeAngle(window.orientation);
+
+    return window.innerWidth >= window.innerHeight ? 90 : 0;
+}
+
+function shouldRotateCapture() {
+    // Desktop / laptop biasanya jangan dipaksa rotate.
+    // Tablet tetap ikut sensor karena perilakunya lebih dekat ke HP.
+    return isTouchLikeDevice();
+}
+
+// ─── RESPONSIVE LAYOUT (Tablet & Desktop) ───────────────────────
+/**
+ * Tambahkan class ke <body> berdasarkan tipe perangkat:
+ *   layout-mobile  → HP / perangkat sentuh kecil
+ *   layout-tablet  → Tablet (sentuh, lebar ≥ 600 px)
+ *   layout-desktop → Laptop / PC (non-sentuh)
+ *
+ * Untuk desktop: paksa tampilan landscape dengan CSS injected di bawah.
+ */
+function applyResponsiveLayout() {
+    const isDesktop = !isTouchLikeDevice();
+    const isTablet  = isTabletLikeDevice();
+
+    document.body.classList.remove('layout-mobile', 'layout-tablet', 'layout-desktop');
+    if (isDesktop) {
+        document.body.classList.add('layout-desktop');
+    } else if (isTablet) {
+        document.body.classList.add('layout-tablet');
+    } else {
+        document.body.classList.add('layout-mobile');
+    }
+}
+
+function injectResponsiveCSS() {
+    if (document.getElementById('ac-responsive-style')) return;
+    const style = document.createElement('style');
+    style.id = 'ac-responsive-style';
+    style.textContent = `
+/* ── AuthenticCam: Responsive Layout ─────────────────────── */
+
+/* ── TABLET (≥ 600 px, touch) ─────────────────────────────── */
+body.layout-tablet #camWrap,
+body.layout-tablet .cam-viewport {
+    max-width: 768px;
+    margin: 0 auto;
+}
+body.layout-tablet .settings-sheet {
+    max-width: 480px;
+}
+body.layout-tablet .quick-bar {
+    gap: 14px;
+    padding: 10px 20px;
+}
+body.layout-tablet .top-bar {
+    padding: 12px 20px;
+}
+body.layout-tablet .shutter-wrap {
+    gap: 32px;
+}
+
+/* ── DESKTOP / LAPTOP (non-touch) ─────────────────────────── */
+/* Paksa layout landscape: app container horizontal,
+   viewfinder di kiri, panel kontrol di kanan            */
+body.layout-desktop {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: #0a0a0f;
+}
+body.layout-desktop #app,
+body.layout-desktop .app-root {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    grid-template-rows: 100vh;
+    max-width: 1200px;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 0;
+    box-shadow: 0 0 60px rgba(0,0,0,.6);
+}
+body.layout-desktop #camWrap,
+body.layout-desktop .cam-viewport {
+    grid-column: 1;
+    width: 100%;
+    height: 100vh;
+    border-radius: 0;
+}
+body.layout-desktop .settings-sheet,
+body.layout-desktop #settingsSheet {
+    position: static !important;
+    grid-column: 2;
+    height: 100vh;
+    transform: none !important;
+    border-radius: 0;
+    overflow-y: auto;
+    box-shadow: -2px 0 20px rgba(0,0,0,.4);
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+body.layout-desktop .sheet-backdrop,
+body.layout-desktop #sheetBackdrop {
+    display: none !important;
+}
+body.layout-desktop .top-bar {
+    padding: 14px 24px;
+}
+body.layout-desktop .quick-bar {
+    gap: 18px;
+    padding: 12px 24px;
+}
+body.layout-desktop .shutter-wrap {
+    gap: 40px;
+}
+/* Tombol shutter lebih besar di desktop */
+body.layout-desktop .shutter-photo,
+body.layout-desktop #shutterPhoto {
+    width: 72px;
+    height: 72px;
+}
+/* Sembunyikan tombol settings di desktop karena panel selalu terbuka */
+body.layout-desktop #settingsBtn {
+    display: none !important;
+}
+
+/* ── Responsif umum: tidak ada horizontal scroll ──────────── */
+body {
+    overflow-x: hidden;
+}
+@media (max-width: 599px) {
+    body.layout-tablet { /* fallback jika class salah detect */ }
+}
+@media (min-width: 600px) and (max-width: 1023px) {
+    /* Tablet tambahan via media query sebagai safety net */
+    body:not(.layout-desktop) #camWrap { max-width: 700px; margin: 0 auto; }
+}
+    `;
+    document.head.appendChild(style);
+}
+
+
 function buildCaptureCanvas() {
-    const vw = vid.videoWidth;
-    const vh = vid.videoHeight;
+    const vw = vid.videoWidth || 0;
+    const vh = vid.videoHeight || 0;
+    const rawAngle = shouldRotateCapture() ? getDeviceOrientation() : 0;
+    const angle = normalizeAngle(rawAngle);
 
-    cvs.width  = vw;
-    cvs.height = vh;
+    const rotate = angle === 90 || angle === 270;
+    const cw = rotate ? vh : vw;
+    const ch = rotate ? vw : vh;
 
-    const ctx = cvs.getContext('2d');
-    ctx.clearRect(0, 0, vw, vh);
+    cvs.width = cw;
+    cvs.height = ch;
 
-    // Logging sederhana untuk debugging orientasi
-    console.log({ videoWidth: vw, videoHeight: vh, inner: [window.innerWidth, window.innerHeight] });
+    const ctx = cvs.getContext('2d', { willReadFrequently: true });
+    ctx.clearRect(0, 0, cw, ch);
+
+    console.log({
+        videoWidth: vw,
+        videoHeight: vh,
+        canvasWidth: cw,
+        canvasHeight: ch,
+        orientation: angle,
+        touchLike: isTouchLikeDevice(),
+        tabletLike: isTabletLikeDevice(),
+        facing: S.facing
+    });
 
     ctx.save();
-    if (S.facing === 'user') {
-        // Handle mirror effect untuk kamera depan
-        ctx.translate(vw, 0); 
-        ctx.scale(-1, 1);
-        ctx.drawImage(vid, 0, 0, vw, vh);
-    } else {
-        // Render asli sesuai feed video tanpa rotasi berlebihan
-        ctx.drawImage(vid, 0, 0, vw, vh);
+
+    if (angle === 90) {
+        ctx.translate(cw, 0);
+        ctx.rotate(Math.PI / 2);
+    } else if (angle === 270) {
+        ctx.translate(0, ch);
+        ctx.rotate(-Math.PI / 2);
+    } else if (angle === 180) {
+        ctx.translate(cw, ch);
+        ctx.rotate(Math.PI);
     }
+
+    // Kamera depan tetap mirror
+    if (S.facing === 'user') {
+        ctx.translate(vw, 0);
+        ctx.scale(-1, 1);
+    }
+
+    ctx.drawImage(vid, 0, 0, vw, vh);
     ctx.restore();
 
-    return { ctx, canvasW: vw, canvasH: vh };
+    return { ctx, canvasW: cw, canvasH: ch, angle };
 }
 
 function drawLiveFrame(ctx, w, h) {
@@ -649,10 +888,8 @@ function drawLiveFrame(ctx, w, h) {
     if (S.facing === 'user') {
         ctx.translate(w, 0);
         ctx.scale(-1, 1);
-        ctx.drawImage(vid, 0, 0, w, h);
-    } else {
-        ctx.drawImage(vid, 0, 0, w, h);
     }
+    ctx.drawImage(vid, 0, 0, w, h);
     ctx.restore();
 }
 
@@ -670,17 +907,23 @@ async function applyWatermark(ctx, cw, ch, opts = {}) {
     const px   = v => Math.round(base * v);
 
     const isAdaptive = wmAdaptive !== false;
-    const isPortrait = ch > cw;
 
-    // Adaptasi font dan spacing berdasarkan orientasi hasil gambar
-    let fMain = px(.030), fSub = px(.021);
-    let padV  = px(.020), padH = px(.024);
+    // ── Orientasi ditentukan dari dimensi canvas FINAL, bukan dari screen angle.
+    // Fallback ke metadata video jika canvas belum di-render / dimensi sama.
+    // Ini memastikan konsistensi di portrait maupun landscape di semua device.
+    const isPortrait = ch > cw || (vid?.videoHeight > vid?.videoWidth);
 
-    if (isAdaptive && isPortrait) {
-        fMain = px(.035);
-        fSub  = px(.024);
-        padV  = px(.028);
-        padH  = px(.030);
+    // ── Ukuran tipografi & padding disesuaikan orientasi + mode adaptive.
+    // Landscape lebih compact karena tinggi strip terbatas.
+    let fMain = isPortrait ? px(.035) : px(.025);
+    let fSub  = isPortrait ? px(.024) : px(.018);
+    let padV  = isPortrait ? px(.028) : px(.018);
+    let padH  = isPortrait ? px(.030) : px(.022);
+
+    // Jika adaptive dimatikan, kembalikan ke ukuran standar netral
+    if (!isAdaptive) {
+        fMain = px(.030); fSub = px(.021);
+        padV  = px(.020); padH = px(.024);
     }
 
     const PALS = {
@@ -709,14 +952,15 @@ async function applyWatermark(ctx, cw, ch, opts = {}) {
     }
 
     if (position === 'strip-bot' || position === 'strip-top') {
-        const lh    = fMain * 1.22;
+        const lh     = fMain * 1.22;
         const logoSz = lh * 1.7;
-        const line1 = owner;
+        const line1  = owner;
 
         let line2 = '';
         let line3 = null;
 
-        // Adaptasi Layout Text Content: Multi-line vs Single Line
+        // Landscape: semua info dijejal dalam 1–2 baris (tinggi strip terbatas)
+        // Portrait: GPS dipisah ke baris ke-3 agar lebih terbaca
         if (isAdaptive && !isPortrait) {
             line2 = [info, timestamp, (showGPS && gps) ? `📍 ${gps}` : null].filter(Boolean).join('  ·  ');
         } else {
@@ -726,9 +970,13 @@ async function applyWatermark(ctx, cw, ch, opts = {}) {
 
         const nLines = 1 + (line2 ? 1 : 0) + (line3 ? 1 : 0);
         const hasQrInStrip = qrImage && qrPosition === 'in-strip';
-        const qrSz   = hasQrInStrip ? Math.min(ch * .09, cw * .075) : 0;
-        const stripH = padV*2 + fMain + (nLines-1)*(fSub*1.38) + (nLines > 1 ? lh*.28 : 0);
-        const sy     = position === 'strip-top' ? 0 : ch - stripH;
+
+        // QR size & strip height menyesuaikan orientasi
+        const qrSz    = hasQrInStrip
+            ? (isPortrait ? Math.min(ch * .10, cw * .085) : Math.min(ch * .08, cw * .065))
+            : 0;
+        const stripH  = padV * 2 + fMain + (nLines - 1) * (fSub * 1.38) + (nLines > 1 ? lh * .28 : 0);
+        const sy      = position === 'strip-top' ? 0 : ch - stripH;
 
         ctx.globalAlpha = 1;
         ctx.fillStyle   = P.bg;
@@ -790,53 +1038,62 @@ async function applyWatermark(ctx, cw, ch, opts = {}) {
         return;
     }
 
-    // Corner badge
+    // Corner badge — ukuran, posisi, dan proporsi semua berbasis cw/ch aktual
     {
-        const mg=px(.020);
-        const bw=cw*.50, bh=fMain*4.5, r=px(.010);
-        const bx = position === 'corner-br' ? cw-bw-mg : mg;
-        const by = ch-bh-mg;
-        ctx.globalAlpha=1; ctx.fillStyle=P.bg; roundRect(ctx,bx,by,bw,bh,r); ctx.fill();
-        ctx.fillStyle=P.bar; roundRect(ctx,bx,by,Math.max(3,px(.004)),bh,[r,0,0,r]); ctx.fill();
-        let tx=bx+padH;
+        const mg  = px(.020);
+        const bw  = cw * .52;
+        const bh  = fMain * 4.5;
+        const r   = px(.010);
+        const bx  = position === 'corner-br' ? cw - bw - mg : mg;
+        const by  = ch - bh - mg;         // selalu di bagian bawah canvas aktual
+        ctx.globalAlpha = 1; ctx.fillStyle = P.bg; roundRect(ctx, bx, by, bw, bh, r); ctx.fill();
+        ctx.fillStyle = P.bar; roundRect(ctx, bx, by, Math.max(3, px(.004)), bh, [r, 0, 0, r]); ctx.fill();
+        let tx = bx + padH;
         if (logo) {
             try {
-                const lsz=bh*.52,lx=bx+padH*.55,ly=by+(bh-lsz)/2;
-                ctx.save();ctx.globalAlpha=opacity;
-                ctx.beginPath();ctx.arc(lx+lsz/2,ly+lsz/2,lsz/2,0,Math.PI*2);ctx.clip();
-                ctx.drawImage(logo,lx,ly,lsz,lsz);ctx.restore();
-                tx=lx+lsz+padH*.7;
-            } catch(_){}
+                // Logo size proporsional terhadap orientasi
+                const lsz = isPortrait ? bh * .55 : bh * .48;
+                const lx  = bx + padH * .55;
+                const ly  = by + (bh - lsz) / 2;
+                ctx.save(); ctx.globalAlpha = opacity;
+                ctx.beginPath(); ctx.arc(lx + lsz/2, ly + lsz/2, lsz/2, 0, Math.PI * 2); ctx.clip();
+                ctx.drawImage(logo, lx, ly, lsz, lsz); ctx.restore();
+                tx = lx + lsz + padH * .7;
+            } catch(_) {}
         }
-        const mxW=bw-(tx-bx)-padH;
-        ctx.shadowColor='rgba(0,0,0,.55)';ctx.shadowBlur=4;ctx.textAlign='left';
-        ctx.fillStyle=P.txt;ctx.font=`700 ${fMain}px Outfit,sans-serif`;ctx.globalAlpha=1;
-        ctx.fillText(clip(ctx,owner,mxW),tx,by+bh*.44);
-        const sub=[info,timestamp,showGPS&&gps?`📍 ${gps}`:''].filter(Boolean).join(' · ');
-        ctx.fillStyle=P.sub;ctx.font=`400 ${fSub}px 'Fira Code',monospace`;ctx.globalAlpha=.85;
-        ctx.fillText(clip(ctx,sub,mxW),tx,by+bh*.74);
-        ctx.shadowBlur=0;
-        drawSigCorner(ctx,cw,ch,signature,P.acc,px);
+        const mxW = bw - (tx - bx) - padH;
+        ctx.shadowColor = 'rgba(0,0,0,.55)'; ctx.shadowBlur = 4; ctx.textAlign = 'left';
+        ctx.fillStyle = P.txt; ctx.font = `700 ${fMain}px Outfit,sans-serif`; ctx.globalAlpha = 1;
+        ctx.fillText(clip(ctx, owner, mxW), tx, by + bh * .44);
+        const sub = [info, timestamp, showGPS && gps ? `📍 ${gps}` : ''].filter(Boolean).join(' · ');
+        ctx.fillStyle = P.sub; ctx.font = `400 ${fSub}px 'Fira Code',monospace`; ctx.globalAlpha = .85;
+        ctx.fillText(clip(ctx, sub, mxW), tx, by + bh * .74);
+        ctx.shadowBlur = 0;
+        drawSigCorner(ctx, cw, ch, signature, P.acc, px);
         ctx.restore();
-        if (qrImage) drawQRCorner(ctx,cw,ch,qrImage,qrPosition,mg,base);
+        if (qrImage) drawQRCorner(ctx, cw, ch, qrImage, qrPosition, mg, base);
     }
 }
 
 function drawSigCorner(ctx, cw, ch, sig, color, px) {
     if (!sig) return;
-    ctx.save(); ctx.globalAlpha=.48; ctx.fillStyle=color;
-    ctx.font=`500 ${px(.016)}px 'Fira Code',monospace`; ctx.textAlign='right';
-    ctx.shadowColor='rgba(0,0,0,.6)';ctx.shadowBlur=3;
-    ctx.fillText(sig, cw-px(.016), ch-px(.012));
+    // Posisi signature selalu relatif terhadap ch/cw aktual (sudah termasuk rotasi)
+    ctx.save();
+    ctx.globalAlpha = .48; ctx.fillStyle = color;
+    ctx.font = `500 ${px(.016)}px 'Fira Code',monospace`;
+    ctx.textAlign = 'right';
+    ctx.shadowColor = 'rgba(0,0,0,.6)'; ctx.shadowBlur = 3;
+    ctx.fillText(sig, cw - px(.016), ch - px(.012));
     ctx.restore();
 }
 
 function drawQRCorner(ctx, cw, ch, qrImg, pos, pad, base) {
+    // QR size proporsional terhadap sisi terpendek canvas (berlaku di portrait & landscape)
     const sz = Math.round(base * .10);
-    const qx = (pos==='corner-bl'||pos==='corner-tl') ? pad : cw-sz-pad;
-    const qy = (pos==='corner-tr'||pos==='corner-tl') ? pad : ch-sz-pad;
-    ctx.save(); ctx.globalAlpha=.93; ctx.fillStyle='#fff';
-    roundRect(ctx, qx-3, qy-3, sz+6, sz+6, 5); ctx.fill();
+    const qx = (pos === 'corner-bl' || pos === 'corner-tl') ? pad : cw - sz - pad;
+    const qy = (pos === 'corner-tr' || pos === 'corner-tl') ? pad : ch - sz - pad;
+    ctx.save(); ctx.globalAlpha = .93; ctx.fillStyle = '#fff';
+    roundRect(ctx, qx - 3, qy - 3, sz + 6, sz + 6, 5); ctx.fill();
     ctx.drawImage(qrImg, qx, qy, sz, sz); ctx.restore();
 }
 
@@ -1357,6 +1614,13 @@ function esc(s) {
         .replace(/"/g,'&quot;');
 }
 
+function getDeviceOrientation() {
+    if (screen.orientation && screen.orientation.angle !== undefined) {
+        return screen.orientation.angle;
+    }
+    return window.orientation || 0;
+}
+
 // ─── KEYBOARD & HARDWARE SHORTCUTS ──────────────────────────────
 document.addEventListener('keydown', e => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -1391,6 +1655,8 @@ window.addEventListener('keydown', e => {
 // ─── BOOT ────────────────────────────────────────────────────────
 function boot() {
     injectProUI();
+    injectResponsiveCSS();   // Inject CSS responsif tablet & desktop landscape
+    applyResponsiveLayout(); // Pasang class layout berdasarkan tipe perangkat
     initWorker();
     loadSettings();
     initGPS();
